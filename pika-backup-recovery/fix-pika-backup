@@ -1,0 +1,212 @@
+#!/usr/bin/env bash
+# fix-pika-backup — Restore Pika Backup when the Secret portal goes missing
+# after a Bluefin ostree update / reboot.
+#
+# Usage: fix-pika-backup [--skip-config]
+#   --skip-config   Skip applying preventive config files (use if already applied)
+#
+# Requires: bash, systemd, flatpak, gdbus
+# Safe to run multiple times; exits early if the Secret portal is already healthy.
+
+set -euo pipefail
+
+SKIP_CONFIG=false
+[[ "${1:-}" == "--skip-config" ]] && SKIP_CONFIG=true
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BOLD='\033[1m'
+RESET='\033[0m'
+
+step()   { echo -e "\n${BOLD}[$1]${RESET} $2"; }
+ok()     { echo -e "  ${GREEN}✓${RESET} $1"; }
+fail()   { echo -e "  ${RED}✗${RESET} $1"; }
+warn()   { echo -e "  ${YELLOW}⚠${RESET} $1"; }
+
+# ── helpers ──────────────────────────────────────────────────────────────────
+
+portal_has_secret() {
+    gdbus introspect --session \
+        --dest org.freedesktop.portal.Desktop \
+        --object-path /org/freedesktop/portal/desktop 2>&1 \
+        | grep -q "org.freedesktop.portal.Secret"
+}
+
+pika_dbus_names() {
+    busctl --user list 2>/dev/null | grep -c "org.gnome.World.PikaBackup" || true
+}
+
+# ── step 1: diagnose ────────────────────────────────────────────────────────
+
+step "1/5" "Diagnosing Secret portal"
+
+if portal_has_secret; then
+    ok "Secret portal is healthy"
+else
+    fail "Secret portal is missing"
+fi
+
+pika_count=$(pika_dbus_names)
+echo "  Pika D-Bus names: ${pika_count}/3"
+
+if portal_has_secret && [[ "$pika_count" -ge 3 ]]; then
+    echo -e "\n${GREEN}Everything looks good — nothing to fix.${RESET}"
+    exit 0
+fi
+
+# ── step 2: restore secret portal ───────────────────────────────────────────
+
+step "2/5" "Restarting portal service chain"
+
+echo "  Stopping all portal services..."
+systemctl --user stop xdg-desktop-portal.service        2>/dev/null || true
+systemctl --user stop xdg-desktop-portal-gnome.service   2>/dev/null || true
+systemctl --user stop xdg-desktop-portal-gtk.service     2>/dev/null || true
+# kill any stragglers (pgrep -f needed because name > 15 chars)
+pkill -f xdg-desktop-portal 2>/dev/null || true
+sleep 3
+
+echo "  Starting portal fresh..."
+systemctl --user start xdg-desktop-portal.service
+sleep 5
+
+if portal_has_secret; then
+    ok "Secret portal restored"
+else
+    fail "Secret portal still missing after full chain restart"
+    warn "Attempting keyring restart + retry..."
+    systemctl --user restart gnome-keyring-daemon 2>/dev/null || true
+    sleep 2
+    systemctl --user stop xdg-desktop-portal.service       2>/dev/null || true
+    systemctl --user stop xdg-desktop-portal-gnome.service  2>/dev/null || true
+    systemctl --user stop xdg-desktop-portal-gtk.service    2>/dev/null || true
+    pkill -f xdg-desktop-portal 2>/dev/null || true
+    sleep 3
+    systemctl --user start xdg-desktop-portal.service
+    sleep 5
+
+    if portal_has_secret; then
+        ok "Secret portal restored (after keyring restart)"
+    else
+        fail "Secret portal STILL missing. Try rebooting."
+        exit 1
+    fi
+fi
+
+# ── step 3: preventive config (one-time) ────────────────────────────────────
+
+if [[ "$SKIP_CONFIG" == true ]]; then
+    step "3/5" "Preventive config — skipped (--skip-config)"
+else
+    step "3/5" "Applying preventive config"
+
+    # 3a: systemd drop-in — portal starts after keyring
+    DROPIN_DIR=~/.config/systemd/user/xdg-desktop-portal.service.d
+    DROPIN="${DROPIN_DIR}/30-after-keyring.conf"
+    if [[ -f "$DROPIN" ]]; then
+        ok "Systemd drop-in already exists"
+    else
+        mkdir -p "$DROPIN_DIR"
+        cat > "$DROPIN" << 'CONF'
+[Unit]
+# Ensure gnome-keyring-daemon is running before the portal starts,
+# so the Secret portal backend (org.freedesktop.portal.Secret) is
+# available when xdg-desktop-portal probes for backends.
+After=gnome-keyring-daemon.service
+Wants=gnome-keyring-daemon.service
+CONF
+        systemctl --user daemon-reload
+        ok "Systemd drop-in created"
+    fi
+
+    # 3b: Flatpak permissions override
+    OVERRIDE=~/.local/share/flatpak/overrides/org.gnome.World.PikaBackup
+    if [[ -f "$OVERRIDE" ]]; then
+        ok "Flatpak override already exists"
+    else
+        mkdir -p "$(dirname "$OVERRIDE")"
+        cat > "$OVERRIDE" << 'CONF'
+[Context]
+shared=ipc;network;
+sockets=fallback-x11;ssh-auth;wayland;
+devices=all;
+filesystems=~/.var/app;xdg-run/gvfsd;xdg-run/pika-backup:create;/var:ro;xdg-run/gvfs;xdg-data/flatpak:ro;host;
+unset-environment=LD_PRELOAD;GTK_THEME;
+
+[Session Bus Policy]
+org.gtk.vfs.*=talk
+org.gtk.MountOperationHandler=talk
+org.freedesktop.Flatpak.*=talk
+org.freedesktop.secrets=talk
+org.gnome.Shell=talk
+
+[System Bus Policy]
+org.freedesktop.UPower=talk
+
+[Environment]
+LD_PRELOAD=
+GTK_THEME=
+CONF
+        ok "Flatpak permissions override created"
+    fi
+
+    # 3c: autostart entry for monitor
+    AUTOSTART=~/.config/autostart/pika-backup-monitor.desktop
+    if [[ -f "$AUTOSTART" ]]; then
+        ok "Autostart entry already exists"
+    else
+        mkdir -p "$(dirname "$AUTOSTART")"
+        cat > "$AUTOSTART" << 'CONF'
+[Desktop Entry]
+Type=Application
+Name=Pika Backup Monitor
+Exec=flatpak run --command=pika-backup-monitor org.gnome.World.PikaBackup
+Icon=org.gnome.World.PikaBackup
+X-GNOME-Autostart-Delay=90
+X-GNOME-UsesNotifications=true
+X-Flatpak=org.gnome.World.PikaBackup
+Hidden=false
+CONF
+        ok "Autostart entry created"
+    fi
+fi
+
+# ── step 4: restart pika backup ─────────────────────────────────────────────
+
+step "4/5" "Restarting Pika Backup"
+
+flatpak kill org.gnome.World.PikaBackup 2>/dev/null || true
+# shellcheck disable=SC2034
+killall -9 pika-backup pika-backup-monitor 2>/dev/null || true
+sleep 2
+
+echo "  Starting service..."
+nohup flatpak run org.gnome.World.PikaBackup --gapplication-service \
+    >/dev/null 2>&1 &
+sleep 3
+
+echo "  Starting monitor..."
+nohup flatpak run --command=pika-backup-monitor org.gnome.World.PikaBackup \
+    >/dev/null 2>&1 &
+sleep 5
+
+# ── step 5: verify ──────────────────────────────────────────────────────────
+
+step "5/5" "Verification"
+
+if portal_has_secret; then
+    ok "Secret portal present"
+else
+    fail "Secret portal missing"
+fi
+
+pika_count=$(pika_dbus_names)
+if [[ "$pika_count" -ge 3 ]]; then
+    ok "Pika D-Bus names: ${pika_count}/3"
+else
+    warn "Pika D-Bus names: ${pika_count}/3 (may need a moment — check GUI)"
+fi
+
+echo ""
+echo -e "${GREEN}${BOLD}Done!${RESET} Open the Pika Backup GUI and confirm 'background process inactive' is gone."
