@@ -146,7 +146,11 @@ Knowledge should first be gathered from trusted resources. Use `RESOURCES.qmd` t
 
 If web search does not work (errors, timeouts, empty, or spam results), **notify the user immediately** — do not silently fall back to parametric knowledge or pretend sources were verified. State what failed, mark affected resources as unverified in `RESOURCES.qmd`, and retry when search is available again.
 
-When a resource is verified and cited, **download it directly and save it into the workspace** (e.g. a `resources/` folder — PDFs, docs pages, spec snapshots) and record the local path in `RESOURCES.qmd`. Lessons must not depend on external links staying alive.
+When a resource is verified and cited, **download it and save it into the workspace, mirroring its type** (a `resources/` folder), and record the local path in `RESOURCES.qmd`. Lessons must not depend on external links staying alive:
+
+- **PDFs, datasets, slides, code archives** — save verbatim into `resources/`.
+- **Web pages** — snapshot to a local `.qmd` under `resources/web/`: a YAML `title`, a provenance blockquote (source URL, fetch date, license/© note), then the page's content converted to markdown. Trim site navigation, keep the substance.
+- **Paywalled or unobtainable full texts** — say so plainly in `RESOURCES.qmd`; snapshot the abstract/landing page as a `.qmd`, and hunt an open-access substitute (author mirrors, `.edu` lecture notes, working-paper repositories, the Wayback Machine) rather than relying on the dead link.
 
 For acquiring knowledge, difficulty is the enemy. It eats working memory you need for understanding.
 
