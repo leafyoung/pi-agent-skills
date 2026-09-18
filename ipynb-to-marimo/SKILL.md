@@ -59,6 +59,19 @@ Two damage classes the converter never fixes for you: objective functions that
 close over globals a later cell rebinds (§6 — silently fits stale data), and
 bare `display(...)` calls (§3 — runtime `NameError`).
 
+**Dangerous special case: a source variable named `mo`.** marimo's own convention
+is `import marimo as mo`, so if the source notebook reuses `mo` for anything else
+(a loop variable for "month" is a classic collision), the converter renames the
+colliding definitions to `mo_1`, `mo_2`, … — safe on its own, like any other
+renamed collision — but its markdown/display-cell rewriter can then bind the
+wrong (locally-scoped, non-import) `mo_N` into a `mo_N.md(...)` call instead of
+the real `mo` import. This produces `AttributeError`s like `'datetime.datetime'
+object has no attribute 'md'` at *runtime*, not at `marimo check` time, so it
+slips past static validation. After conversion, grep for `mo_\d+\.md\(` and
+confirm every hit is a markdown cell that should be calling the real `mo`
+import — rebind it and drop the now-unused `mo_N` from that cell's `return`
+tuple.
+
 ## 2. Project setup (uv)
 
 Add marimo (and ruff if linting) to the uv project:
@@ -210,6 +223,15 @@ original's run-to-run spread. If the notebook reads live or volatile data,
 freeze it first (staging copy of the data dir, both sides pointed there, runs
 back-to-back) — otherwise identical pipelines still differ on the day's fresh
 download.
+
+If both formats *are* individually reproducible but still disagree on a seeded
+computation, suspect an RNG API swap before anything else: `np.random.seed(42)` +
+`np.random.randn(...)` (legacy global `RandomState`, Mersenne Twister) and
+`np.random.default_rng(42)` (modern `Generator`, PCG64) are different algorithms
+that produce different streams from the *same* seed. Nothing in the converter
+does this, but it's an easy "modernization" to introduce by hand while cleaning
+up a cell — never substitute one API for the other during conversion; keep
+whichever the source notebook used.
 
 **Layer 4 — execution.** Execute every converted notebook headlessly (exit 0, no
 failed cells), and execute the originals the same way (nbconvert) so both formats
