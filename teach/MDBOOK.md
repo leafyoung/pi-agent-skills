@@ -21,24 +21,34 @@ Quarto stays the default for print-oriented, Tufte-style lessons.
 
 ## Toolchain — exact versions, no substitutions
 
-Installed via `cargo` (binaries land in `~/.cargo/bin`):
+mdbook 0.5 changed the preprocessor protocol (RenderContext format).
+mdbook-katex >=0.10 and mdbook-mermaid >=0.17 were updated upstream for it
+(they now build against `mdbook-preprocessor 0.5.x`) and install fine from
+crates.io. **mdbook-admonish has not been updated upstream as of writing**
+(crates.io still ships 1.20.0, which predates the protocol change and
+crashes on mdbook 0.5 with `invalid type: null, expected any valid TOML
+value`) — track https://github.com/tommilligan/mdbook-admonish/issues/233.
+Until that lands, admonish must be built from the `tixena/mdbook-admonish`
+fork, which already supports 0.5:
 
 ```bash
-cargo install mdbook@0.4.52 mdbook-admonish@1.20.0 mdbook-katex@0.9.0 mdbook-mermaid@0.16.0
+cargo install mdbook mdbook-katex mdbook-mermaid
+cargo install --git https://github.com/tixena/mdbook-admonish mdbook-admonish --force
 ```
 
-| Crate | Version | Role |
+| Crate | Source | Role |
 | --- | --- | --- |
-| mdbook | 0.4.52 | the builder |
-| mdbook-admonish | 1.20.0 | callout boxes (` ```admonish ` blocks) |
-| mdbook-katex | 0.9.0 | build-time math rendering (KaTeX) |
-| mdbook-mermaid | 0.16.0 | ` ```mermaid ` diagrams |
+| mdbook | crates.io, latest (0.5.x) | the builder |
+| mdbook-admonish | **git fork** `tixena/mdbook-admonish` — crates.io 1.20.0 is 0.4-only | callout boxes (` ```admonish ` blocks) |
+| mdbook-katex | crates.io, latest (>=0.10.0) | build-time math rendering (KaTeX) |
+| mdbook-mermaid | crates.io, latest (>=0.17.0) | ` ```mermaid ` diagrams |
 
-These four are **mutually compatible — upgrade all-or-nothing**. mdbook-katex
-0.10 and mdbook-mermaid 0.17 require mdbook 0.5, which mdbook-admonish 1.20
-rejects (its preprocessor crashes on 0.5 with a config-parse error). Do not
-mix new katex/mermaid with mdbook 0.4, and do not bump mdbook to 0.5 until a
-0.5-compatible admonish exists.
+The git-fork install isn't tracked by `cargo install --list` version bumps
+or `cargo update` — rerun the `--git` install line to pick up fork commits.
+Switch admonish back to the crates.io release once #233 merges upstream
+(check `cargo install mdbook-admonish` picks up a version newer than
+1.20.0, or that its Cargo.toml depends on `mdbook-preprocessor` — the tell
+that it's a mdbook-0.5-compatible release).
 
 ## Workspace layout (mdbook flavor)
 

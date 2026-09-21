@@ -1,8 +1,9 @@
 # mdBook build config template — copy to <workspace>/mdbook/book.toml, fill in the title.
 # Wire plugins from INSIDE the book dir: cd mdbook && mdbook-admonish install .
 # (add `mdbook-mermaid install .` only once a mermaid block exists — it edits this file too)
-# Exact toolchain: mdbook 0.4.52 + mdbook-admonish 1.20.0 + mdbook-katex 0.9.0 + mdbook-mermaid 0.16.0
-# (see MDBOOK.md — these are mutually compatible; do not mix versions).
+# Toolchain: mdbook + mdbook-katex + mdbook-mermaid from crates.io (latest);
+# mdbook-admonish must be built from the tixena/mdbook-admonish git fork
+# (crates.io 1.20.0 predates mdbook 0.5 and crashes on it) — see MDBOOK.md.
 #
 # katex_underscore_fix.py: proven implementation lives at
 #   /Users/yangye/Downloads/quant_notebooks/katex_underscore_fix.py
