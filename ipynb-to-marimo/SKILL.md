@@ -308,7 +308,20 @@ Details, edge cases, and the removal protocol: read
 - Replace interactive input that waits for terminal input; gate expensive work or
   side effects with `mo.stop()` and a suitable UI element.
 - Do not print, log, or save secrets.
-- For ipywidgets, read [`references/widgets.md`](references/widgets.md).
+- **ipywidgets do not work in marimo — this is silent, not an error.** `import ipywidgets`
+  succeeds (it's an ordinary pip package) and `Accordion`/`Tab`/`Output`/`interact`/`.observe()`
+  all construct and execute without raising, so `marimo check`, Layers 1-4, and even a real
+  headless `app.run()` all report success. But marimo's frontend has no Comm channel wired up
+  for classic ipywidgets: containers print as inert text reprs
+  (`interactive(children=(Dropdown(...), Output()), _dom_classes=(...))`) instead of rendering,
+  and `.observe()`/`interact()` callbacks never fire — the "interactivity" is completely dead.
+  None of the automated verification layers catch this because they check that code runs and
+  outputs match, not that a widget is interactive. Treat any `import ipywidgets` (or
+  `from ipywidgets import ...`) in the source as a required migration, not an optional cleanup:
+  grep for it before declaring a notebook done, and read
+  [`references/widgets.md`](references/widgets.md) for the mapping (prefer the native `mo.ui`/
+  `mo.accordion`/`mo.ui.tabs` equivalent in the table there; fall back to
+  `mo.ui.anywidget(...)` only for entries marked "no equivalent").
 - For LaTeX and MathJax, read [`references/latex.md`](references/latex.md).
 
 ## 7. Clean up
