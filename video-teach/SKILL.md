@@ -1,5 +1,5 @@
 ---
-name: video-course
+name: video-teach
 description: >-
   Build a full study course from a list of YouTube lecture videos, laid out as
   one workspace: one git repo, one `uv` project, one folder per
@@ -124,7 +124,7 @@ Invoke the transcribe-video skill and follow it exactly. Course-specific points:
 Run the skill's extractor, then review and index:
 
 ```bash
-cd ep<N>_<slug> && python3 ~/.agents/skills/video-course/scripts/extract_slides.py "$VIDEO" \
+cd ep<N>_<slug> && python3 ~/.agents/skills/video-teach/scripts/extract_slides.py "$VIDEO" \
   [--scene-threshold 0.25] [--sample-interval 20]
 ```
 
@@ -210,7 +210,7 @@ an established marimo demo register):
 - Self-contained: synthetic data or tiny bundled samples by default; if it needs a
   download, cache into `epN_<slug>/data/` and degrade gracefully offline.
 - **Verify by execution**: `uv run python
-  ~/.agents/skills/video-course/scripts/run_marimo_notebook.py
+  ~/.agents/skills/video-teach/scripts/run_marimo_notebook.py
   epN_<slug>/notebooks/<slug>.py` — it imports the module and runs every cell via
   `app.run(defs={"mo": marimo})`; any exception is a bug. (Plain `marimo export html`
   is NOT a reliable verifier here: its headless cell execution can fail to inject `mo`
