@@ -17,7 +17,10 @@ build differ.
 - Choose once per workspace and record the choice in `NOTES` (mdbook
   workspaces: `mdbook/src/NOTES.md`). Never mix formats inside one workspace.
 
-Quarto stays the default for print-oriented, Tufte-style lessons.
+mdbook is the **default** for lessons; quarto remains for genuinely
+print-first deliverables and for the root reference documents
+(GLOSSARY/MISSION/NOTES/RESOURCES), which keep rendering via Quarto even in
+mdbook workspaces — their lesson links point into the built book.
 
 ## Toolchain — exact versions, no substitutions
 
@@ -73,20 +76,27 @@ that it's a mdbook-0.5-compatible release).
 
 ## Workspace layout (mdbook flavor)
 
-Same teaching content as the Quarto flavor, inside `./mdbook/`:
+Same teaching content as the Quarto flavor, inside `./mdbook/` (the dir
+name is a convention, not a requirement — linkage uses `lessons_md/` +
+`lessons_md_zh/` at the workspace root, one full-mirror book per language;
+translations are kept in lockstep, see "Mirrors, sync, and verification"
+in SKILL.md):
 
 - `book.toml` — build config (start from [`assets/book.toml`](./assets/book.toml))
 - `src/SUMMARY.md` — the table of contents; **every chapter file must be
   listed here or mdBook will not render it**
 - `src/mission.md` — the mission (MISSION.qmd equivalent)
 - `src/lessons/0001-<name>.md` — lessons, numbered in teaching order
-  (match the naming style already in the workspace: this collection uses
-  underscore-separated `000n_slug.md`)
+  (match the naming style already in the workspace; the argus-teach books
+  use dash-separated `000N-slug.md` — underscores are the companion
+  *notebook* files' convention, not the lessons')
 - `src/reference/*.md`, `src/resources.md`, `src/NOTES.md`,
   `src/learning-records/*.md` — same roles as the Quarto flavor
 - `src/assets/` — figures and their regeneration scripts (same rule as
   Quarto: every figure's generation code is a first-class component)
-- `book/` — build output (add to `.gitignore`)
+- `book/` — build output (gitignore by default; a workspace whose other
+  artifacts link into the built pages — reference-doc PDFs, notebook
+  headers — may commit it instead, as linkage does)
 
 ## book.toml and plugin wiring
 
@@ -127,13 +137,18 @@ has diagrams. Two wiring rules that are easy to get wrong:
 ## Route B — convert an existing Quarto (qmd) course to mdBook
 
 Convert file-by-file with the mapping below, then rebuild the surrounding
-structure. The `.qmd` sources stay untouched on disk (verification record);
-the mdBook becomes the living format only if the user says so.
+structure. Default end-state: **the book becomes the only living lesson
+source.** After conversion, prove sync with a normalized diff against the
+qmd tree (strip the known per-format differences before diffing), then
+retire the qmd lessons and record the retirement in `NOTES` — linkage did
+exactly this on 2026-09-26, and keeping both is how mirror drift happens.
+Keep the qmd files only if the user explicitly wants the print format
+maintained too.
 
 | Quarto construct | mdBook rewrite |
 | --- | --- |
 | YAML front matter | strip; the `title` becomes the `SUMMARY.md` entry |
-| `::: {.callout-note/tip/important}` … `:::` | ` ```admonish note/tip/warning ` fenced block (body unchanged; `important` maps to `warning`) |
+| `::: {.callout-note/tip/important}` … `:::` | ` ```admonish note/tip/danger ` fenced block (body unchanged; `important` maps to `danger`, not `warning` — Quarto typst renders `important` red `#CC1914` and `danger` is admonish's red; the neg-bal-abuse ERRATA notes depend on this. Plain `caution` is *orange* in Quarto and maps to `warning`) |
 | `{{< pagebreak >}}` | `<div class="pagebreak"></div>` (inert on web, honored by print backends) |
 | `{{< include x.qmd >}}` | inline the converted fragment |
 | ` ```{mermaid} ` + `%%\|` chunk options | ` ```mermaid ` with the `%%|` lines dropped |
@@ -290,3 +305,18 @@ bugs in the **book** — do not regenerate from qmd unless the user asks.
   mechanical; render the riskiest pages to PNG (headless chromium
   `--headless --screenshot`) and eyeball math/dollars/figures before calling
   a conversion or content change done.
+- **`\tilde` mis-render (mdbook-katex fork bug)**: `\tilde{X}` sometimes
+  renders as a literal `~` glyph in text (instead of a stretchy SVG accent),
+  and pulldown-cmark's GFM parser then reads a pair of these stray tildes as
+  strikethrough (`~~`) spanning across `<span>` boundaries → "unclosed/
+  unexpected `<span>`" build warnings. Confirmed trigger: **two `\tilde`
+  math spans in the same paragraph** (one `\tilde` alone is fine; `\bar`/
+  `\hat` repeated in a paragraph are also fine — this is specific to
+  `\tilde`). The katex-text-fix preprocessor does not catch this (it only
+  escapes `_`/`*`, not stray `~`). Two independent workarounds, both proven
+  in practice, pick either: (1) replace `\tilde{X}` with `\widetilde{X}`
+  (same meaning, renders as an SVG accent, no visual difference for a
+  single-letter subscript); or (2) split the offending paragraph so the two
+  `\tilde` spans land in separate paragraphs. Apply the fix in the book's
+  `.md` — the book is where mdBook-specific hazards get fixed, never a
+  still-live `.qmd` source.
