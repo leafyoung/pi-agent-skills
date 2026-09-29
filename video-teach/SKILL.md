@@ -90,7 +90,20 @@ starting from its `assets/book.toml`.
 **Python code.** One root `pyproject.toml`, no per-episode files; add a dependency once
 at the root when any episode needs it. If episodes grow importable `src/` packages,
 use a hatchling multi-package pyproject. Notebooks are
-**marimo, never Jupyter** (user preference; also a teach-skill rule).
+**marimo, never Jupyter** (user preference; also a teach-skill rule). Add a root
+`.vscode/settings.json` so every `epN_<slug>/notebooks/*.py` opens as a marimo
+notebook while `assets/*.py` figure scripts and any `src/` package keep the
+default Python editor (ipynb-to-marimo skill's `workbench.editorAssociations`
+pattern — add an explicit `"default"` override for any non-notebook `.py` that
+would otherwise fall inside the notebook glob):
+
+```json
+{
+  "workbench.editorAssociations": {
+    "**/ep*_*/notebooks/*.py": "marimo-notebook"
+  }
+}
+```
 
 ## Episode pipeline
 

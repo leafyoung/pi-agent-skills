@@ -207,7 +207,7 @@ Each of these should be based on a **feedback loop**. Because the output is stat
 
 **Answers are not optional.** Every exercise printed in a lesson — multiple-choice, fill-in-the-blank, short prompt, real-world task — must have its answer or expected outcome (rubric) printed in the same lesson file, under the "Answers" heading. A lesson rendered with an unanswered exercise is incomplete and must not ship. (2026-09-15: lesson 0001 shipped with unanswered Skills questions and the user had to ask for the key — the exact failure mode this rule prevents.)
 
-**Notebook preference:** the user prefers **marimo** notebooks over Jupyter for lesson-created notebooks and exercises (reactive cells, no hidden state, stored as plain Python — see marimo.new); record the preference in each new workspace's `NOTES`. In an existing Jupyter-based workspace, engage with its notebooks as they are — don't convert wholesale unless asked.
+**Notebook preference:** the user prefers **marimo** notebooks over Jupyter for lesson-created notebooks and exercises (reactive cells, no hidden state, stored as plain Python — see marimo.new); record the preference in each new workspace's `NOTES`. In an existing Jupyter-based workspace, engage with its notebooks as they are — don't convert wholesale unless asked. Wire the workspace's `.vscode/settings.json` so notebook files open in the marimo editor and every other `.py` file (figure/asset scripts, helper modules) keeps the default Python editor — see the `ipynb-to-marimo` skill's `workbench.editorAssociations` pattern (narrower `"default"` overrides first, the notebook glob last).
 
 For printed multiple-choice questions (and in-chat options), construct the set so evenness is automatic — don't audit after the fact:
 
