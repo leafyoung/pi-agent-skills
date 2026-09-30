@@ -15,15 +15,32 @@ description: >-
 
 # Build a video course workspace
 
+**Definitive pipeline** (one episode; the steps below are the full contract):
+
+1. **Step 1** — `transcribe-video` (URL or local media in) →
+   `transcript/<slug>.raw.vtt` (timing kept) + canonical `<slug>.clean.md`
+   (overrides: no `.clean.zh.md`, glossary handed over, intermediates kept).
+2. **Step 2** — slide extraction + OCR → `slides/slideK_<slug>_<MmSSs>.png`,
+   `slides/README.md`, `slides/slides_ocr.json`.
+3. **Step 3** — transcript foundation → `<slug>.verbal.md`, term-corrected
+   `.clean.md` (slide refs + index), tagged `.clean.srt`,
+   `correction_brief.md`/`corrections.json`.
+4. **Steps 4–7** — lessons (mdBook) → resources → marimo notebook → wrap.
+
 Turn a list of YouTube lecture videos into a **teaching workspace**: one git repo
 whose per-episode folders hold every primary source (transcript, slide captures,
 resource snapshots, notebook, lessons), and one mdBook that teaches the course.
 The pipeline per episode:
 
 ```
-video ──download──► media cache ──transcribe──► transcript/*.clean.{md,srt,zh.md}
-  │                                      │
-  └──ffmpeg frames──► slides/slideK_*.png + slides/README.md   (timestamps join keys)
+video/URL ──transcribe-video──► transcript/<slug>.raw.vtt + .clean.md   (Step 1;
+  │                             intermediates kept: video/audio + .groq.* + .srt)
+  └──ffmpeg frames──► slides/slideK_*.png + slides_ocr.json             (Step 2;
+                                       │            timestamps join keys)
+                     ┌─────────────────┴──────────────────┐
+                     ▼                                    ▼
+  transcript_layers: .verbal.md + slide-tagged .clean.srt + corrected .clean.md
+                     (Step 3)
                                        │
                      ┌─────────────────┴──────────────────┐
                      ▼                                    ▼
@@ -68,7 +85,10 @@ and numbers, the transcript outranks the slide on reasoning and motivation.
 │   └── src/assets/epN/    #   copies of figures embedded in lessons (source in epN/assets/)
 └── epN_<slug>/            # one folder per episode — everything else is per-episode
     ├── README.md          # video link, duration, slide count, topic map, what's built
-    ├── transcript/<slug>.clean.{md,srt,zh.md}
+    ├── transcript/<slug>.raw.vtt           # raw transcription (Step 1)
+    ├── transcript/<slug>.clean.md          # canonical clean (Step 1); slide refs + index added (Step 3)
+    ├── transcript/<slug>.verbal.md         # verbatim layer, never LLM-edited (Step 3)
+    ├── transcript/{correction_brief.md,corrections.json}  # Step 3 provenance
     ├── slides/slideK_<slug>_<MmSSs>.png + README.md   # the authoritative slide index
     ├── notebooks/<slug>.py # marimo notebook(s)
     ├── resources/         # downloaded PDFs; web snapshots as resources/web/*.qmd
@@ -110,64 +130,45 @@ would otherwise fall inside the notebook glob):
 **Step 0 — teach first-session flow (new course only).** Run teach's mandatory
 first-session steps before authoring: mission interview, format confirmation
 (mdbook here), research + dependency-map plan, then stop and wait for the
-user's go-ahead. Steps 1–3 below are mechanical (download/transcribe/slides)
+user's go-ahead. Steps 1–3 below are mechanical (transcribe / slides + OCR / transcript layers)
 and may run while that interview and planning happen; no lesson authoring
 before the go-ahead.
 
 Work episodes in watch order. Steps 1–3 are mechanical and can run while you author
 an earlier episode's lessons; authoring (Steps 4–6) is where the care goes.
 
-### Step 1 — Download the video
+### Step 1 — Transcribe (via the `transcribe-video` skill)
 
-Videos go to a gitignored media cache outside the repo (heavy-data policy):
-`~/work/<course-slug>-media/`, with `<course>/MEDIA.md` recording the path. One file
-per episode, named `<course>-ep<N>-<slug>.mp4`.
+One step covers download + transcription: invoke the transcribe-video skill and
+follow it exactly, passing the **YouTube URL** (it downloads the video itself)
+or a **local video/audio file**. Course-specific points:
 
-```bash
-yt-dlp -f "bv*[height<=1080]+ba/b[height<=1080]" --merge-output-format mp4 --no-playlist \
-  -o "$MEDIA_DIR/<course>-ep<N>-<slug>.%(ext)s" "<url>"
-```
+- **The video intermediary is kept** (standing override: callers skip the
+  skill's move-and-cleanup) — Step 2 needs the same video file for slide
+  extraction, and a shared file guarantees slide timestamps align with
+  transcript timestamps. Move it into the media cache (`$MEDIA_DIR`, recorded
+  in `MEDIA.md`) if the skill left it elsewhere.
+- Standing overrides: **no `.clean.zh.md`**; hand over any known proper-noun
+  list (course-level terms from prior episodes). A raw `.vtt`/`.srt` from an
+  earlier pass may be supplied instead (the skill's Step 1b mode, skipping
+  Groq). The slide-OCR-grounded term pass runs in Step 3, after Step 2's OCR
+  exists.
+- **Leave the timing file as `transcript/<slug>.raw.vtt`**: copy (not move)
+  the skill's `<name>.groq.transcript.srt` — or the caller-supplied
+  `.vtt`/`.srt` — to that name. Step 3's commands read exactly this file.
+- Pass `--language-code en` (or the actual language) and
+  `--output-dir <episode>/transcript --output-name <slug>` so outputs land with
+  the right names on the first pass. On `HTTP 403`/`HTTP 500` (SABR/client
+  problem): retry with `--extractor-args "youtube:player_client=visionos"`.
+- Fetch `%(title)s`/`%(channel)s`/`%(duration_string)s` first to pick the
+  episode `<slug>` (lowercase, descriptive, one separator style per course).
+- **Timestamps are the join key** for everything downstream — slide files, the
+  slides index, and lesson citations all reference `MmSSs` positions on the raw
+  video timeline. Everything stays aligned to it.
 
-- On `HTTP 403`/`HTTP 500` (SABR/client problem, not staleness — see transcribe-video
-  skill): retry with `--extractor-args "youtube:player_client=visionos"`.
-- Export once for the commands below: `MEDIA_DIR=~/work/<course-slug>-media` and
-  `VIDEO=$MEDIA_DIR/<course>-ep<N>-<slug>.mp4`. Expand a playlist URL into
-  per-episode URLs first (`yt-dlp --flat-playlist --print url <playlist-url>`), one
-  episode each; `--no-playlist` then guards single-video fetches.
-- Fetch `%(title)s`, `%(channel)s`, `%(duration_string)s` first and use the real title
-  to pick the episode `<slug>` (lowercase, descriptive, one separator style per
-  course: `ep2_tool_use` or `ep2-tool-use`).
-- The video is downloaded **once** and reused for both transcription and slide
-  extraction — a shared file guarantees slide timestamps align with transcript
-  timestamps. Never transcribe from a separate YouTube audio download when slides
-  will be extracted.
+### Step 2 — Extract slides and OCR them
 
-### Step 2 — Transcribe (via the `transcribe-video` skill)
-
-Invoke the transcribe-video skill and follow it exactly. Course-specific points:
-
-- Pass the **local video file** from Step 1 (not the URL) with `--language-code en`
-  (or the actual language) and `--output-dir <episode>/transcript --output-name <slug>`
-  so outputs land with the right names in the right place on the first pass.
-- Do the full clean (`.clean.md` with `##` section headers at spoken topic shifts,
-  `.clean.srt`; plus `.clean.zh.md` when the source is non-Chinese — transcribe-video
-  skips translation for Chinese content) and run the transcribe-video skill's
-  `scripts/verify_clean.py`. Keep the raw SRT until verification and the episode
-  checklist pass. This skill also ships `scripts/dedup_srt.py` (malformed-entry
-  removal, reversal detection, word-overlap dedup — English-oriented) and
-  `scripts/srt_from_clean.py` (rebuild the clean SRT from the finished `.clean.md`,
-  globally aligned) — use them where transcribe-video's current version permits
-  helper scripts, else follow its inline recipe.
-- Build the per-video proper-noun correction list early (lecture courses have many:
-  names, systems, library names). For technical lectures, preserve formulas inline
-  and describe key diagrams/slides as the skill directs.
-- **Timestamps are the join key** for everything downstream — slide files, the slides
-  index, and lesson citations all reference `MmSSs` positions in these transcripts.
-  The `.clean.srt` must stay aligned to the raw video timeline.
-
-### Step 3 — Extract slides
-
-Run the skill's extractor, then review and index:
+Run the skill's extractor on the video from Step 1, then review and index:
 
 ```bash
 cd ep<N>_<slug> && python3 ~/.agents/skills/video-teach/scripts/extract_slides.py "$VIDEO" \
@@ -190,11 +191,32 @@ slide window, captured late in the window), a
    number on the slide. Formulas as text (`M_t(n) = P_t − MA_t(n)`), verified
    against the image, not the transcript's spoken version. Note slide callbacks
    (presenter flips back to an earlier slide) in the header prose, not as new slides.
-4. Delete `slides_raw/` once indexed.
+4. **OCR the kept slides** — `python3 ~/.agents/skills/video-teach/scripts/slide_ocr.py
+   slides/ --duration <video-seconds>` writes `slides/slides_ocr.json` (+ `.md`
+   index): per slide, its OCR text and on-screen time window. This is the ground
+   truth consumed by Step 3's correction pass.
+5. Delete `slides_raw/` once indexed.
 
 Expect roughly one slide per 2–6 lecture minutes; wildly more candidates means the
 threshold is too low or the lecture is whiteboard-style (then capture *boards*
 state-by-state, same naming).
+
+### Step 3 — Two-layer transcript with slide-assisted correction
+With `slides/slides_ocr.json` from Step 2, run the transcript-foundation
+pipeline (`scripts/transcript_layers.py`) against
+`transcript/<slug>.raw.vtt`: derive the verbatim `<slug>.verbal.md`, correct
+the canonical `.clean.md` against slide OCR via a correction brief →
+`corrections.json` → `--fix-clean --assemble` (term fixes in place, slide
+index appended), and tag the `.clean.srt` with `[Slide K]`. Because these
+courses are technical, the slides' OCR is the ground truth for exactly the
+words ASR garbles — named methods, library calls, linearized formulas,
+numbers.
+
+Full commands, artifact definitions, and the precedence rules:
+`references/transcript-foundation.md`. Outputs the checklist expects:
+`transcript/<slug>.verbal.md`, the corrected `transcript/<slug>.clean.md`
+(slide index appended), the slide-tagged `transcript/<slug>.clean.srt`, and
+`correction_brief.md`/`corrections.json` for provenance.
 
 ### Step 4 — Lessons (teach skill, mdBook flavor)
 
@@ -296,15 +318,16 @@ worked example, the visualization of the phenomenon. Conventions:
 - **New session in an existing course**: read AGENTS.md → NOTES.qmd → the book's
   `about.md` progress table → `git log --oneline` + `git status` → the current
   episode's README.md, then resume the pipeline at its first incomplete step (the
-  checklist below defines each step's end state: transcript files present = Step 2
-  done, `slides/README.md` present = Step 3 done, …).
+  checklist below defines each step's end state: raw transcript + `.clean.md`
+  present = Step 1 done, `slides/README.md` + `slides_ocr.json` present = Step 2
+  done, `.verbal.md` + tagged `.clean.srt` present = Step 3 done, …).
 - Skill-scripts and extractors are regenerable; never commit `.venv`, caches,
   build output, or media.
 
 ## Verification checklist (per episode, before commit)
 
-- [ ] transcript: `.clean.md` + `.clean.srt` present (plus `.clean.zh.md` when the source
-      is non-Chinese); the transcribe-video skill's `verify_clean.py` passes
+- [ ] transcript: `<slug>.raw.vtt`, `.clean.md` (slide refs + slide index assembled), and
+      `.verbal.md` present; corrections.json accounted for every correction-brief finding
 - [ ] slides: count sane vs lecture length; every PNG named `slideK_<slug>_<MmSSs>.png`;
       `slides/README.md` table covers every slide with formulas verified against images
 - [ ] book: new chapters in `SUMMARY.md`; `mdbook build` zero warnings; exercises all answered
