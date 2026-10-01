@@ -66,6 +66,16 @@ def ocr(png: Path) -> str:
         Path(src).unlink(missing_ok=True)
 
 
+def ocr_similarity(a: str, b: str) -> float:
+    """Jaccard similarity of two OCR texts' word sets (0..1). Near-1 between
+    *consecutive* slides means the same frame was captured twice — the deck
+    advanced mid-window, so a slide between the two was likely missed."""
+    wa, wb = set(a.lower().split()), set(b.lower().split())
+    if not wa or not wb:
+        return 0.0
+    return len(wa & wb) / len(wa | wb)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("slides_dir", help="dir of slide PNGs named ..._<MmSSs>.png")
@@ -105,6 +115,19 @@ def main():
     for r in rows:
         first = " ".join(r["ocr"].split())[:400]
         md.append(f"| {r['file']} | {r['start']}–{r['end_s'] // 60}m{r['end_s'] % 60:02d}s | {first} |")
+    dupes = [(rows[i], rows[i + 1]) for i in range(len(rows) - 1)
+             if ocr_similarity(rows[i]["ocr"], rows[i + 1]["ocr"]) > 0.75]
+    if dupes:
+        lines = ["", "## Possible duplicate captures", "",
+                 "Consecutive slides with near-identical OCR — the deck likely advanced "
+                 "mid-window, so the first of each pair may be the *next* slide and a "
+                 "slide in between was missed. Re-check the video around the earlier "
+                 "capture timestamp and re-extract if needed (Read the PNGs to confirm).", ""]
+        for a, b in dupes:
+            lines.append(f"- `{a['file']}` ≈ `{b['file']}`")
+            print(f"warn: possible duplicate capture: {a['file']} ≈ {b['file']} "
+                  f"(a slide between them may be missing)", file=sys.stderr)
+        md.extend(lines)
     (d / f"{base}.md").write_text("\n".join(md) + "\n")
     print(f"wrote {d}/{base}.json and {base}.md")
 

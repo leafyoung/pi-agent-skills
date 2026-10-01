@@ -31,6 +31,11 @@ Workflow (each step a separate invocation, so an agent can work between them):
         -> each SRT entry tagged [Slide K] by its start time (idempotent).
 
 Both .vtt and .srt timing files are accepted (comma or dot milliseconds).
+YouTube auto-caption .vtt files (rolling two-line cue format, inline tags,
+stray blank-ish separator lines) are detected and normalized automatically:
+the repeated leading lines are dropped so the verbal layer doesn't double
+every phrase. `dedup_rolling_vtt()` is the standalone form of that
+normalization, reused by fetch_raw_captions.py.
 """
 import argparse
 import json
@@ -40,6 +45,7 @@ from pathlib import Path
 
 TS = re.compile(r"(\d\d):(\d\d):(\d\d)[.,](\d{3})\s*-->\s*(\d\d):(\d\d):(\d\d)[.,](\d{3})")
 SPEAKER = re.compile(r"^([A-Z][A-Za-z0-9 ._ '@+-]{0,38}):\s+")
+TAG = re.compile(r"</?c>|<\d\d:\d\d:\d\d\.\d{3}>")  # YouTube auto-caption inline markup
 
 GLOSSARY = [
     (r"\bKolesky\b", "Cholesky"), (r"\bSHARP256\b", "SHA-256"),
@@ -50,8 +56,12 @@ GLOSSARY = [
 ]
 
 
-def parse_timing(path):
-    """-> list of [start_s, end_s, text] from a .vtt or .srt file."""
+def parse_cue_lines(path):
+    """-> list of [start_s, end_s, [text lines]] from a .vtt or .srt file.
+
+    Blank-ish separator lines (YouTube auto-caption VTT puts a stray " " line
+    between the timestamp and its text) are skipped without flushing, so a
+    cue keeps its own text; cue boundaries are the timestamp lines."""
     cues = []
     ts = None
     lines: list[str] = []
@@ -59,7 +69,7 @@ def parse_timing(path):
     def flush():
         nonlocal ts, lines
         if ts is not None and lines:
-            cues.append([ts[0], ts[1], " ".join(lines)])
+            cues.append([ts[0], ts[1], lines])
         ts, lines = None, []
 
     for raw in Path(path).read_text(errors="ignore").splitlines():
@@ -71,16 +81,86 @@ def parse_timing(path):
                   g[4] * 3600 + g[5] * 60 + g[6] + g[7] / 1000)
             continue
         s = raw.strip()
-        if not s or s == "WEBVTT" or s.isdigit() or s.startswith(("NOTE", "Kind:", "Language:")):
+        if s == "WEBVTT" or s.isdigit() or s.startswith(("NOTE", "Kind:", "Language:")):
             flush()
             continue
+        if not s:
+            continue  # formatting noise; never a cue boundary (see docstring)
         if ts is not None:
-            lines.append(s)
+            # strip YouTube auto-caption inline markup: word-timing anchors
+            # (<00:00:01.500>) and cue-span tags (<c>, </c>); other formats'
+            # text is untouched.
+            lines.append(TAG.sub("", s))
     flush()
-    kept = [c for c in cues if c[2]]
-    if not kept:
+    return cues
+
+
+def _looks_rolling(cues):
+    """True when the YouTube rolling pattern (each cue repeats the previous
+    cue's last line as its first) dominates the file."""
+    overlaps = pairs = 0
+    for a, b in zip(cues, cues[1:]):
+        pairs += 1
+        if b[2][0] == a[2][-1]:
+            overlaps += 1
+    return pairs >= 5 and overlaps / pairs >= 0.5
+
+
+def dedup_rolling(cues):
+    """Drop each cue's leading lines that repeat the previous kept cue's tail
+    (the rolling auto-caption overlap). cues: [start, end, [lines]]."""
+    out, prev = [], []
+    for start, end, ls in cues:
+        k = 0
+        for off in range(min(len(prev), len(ls)), 0, -1):
+            if ls[:off] == prev[len(prev) - off:]:
+                k = off
+                break
+        ls = ls[k:]
+        if not ls:
+            continue
+        out.append([start, end, ls])
+        prev = ls
+    return out
+
+
+def dedup_rolling_vtt(path):
+    """Normalize a rolling YouTube auto-caption .vtt into plain one-line-per-cue
+    WebVTT text (tags stripped, repeated leading lines dropped). Returns the
+    text; write it wherever the pipeline's raw timing file belongs."""
+    cues = [c for c in parse_cue_lines(path) if c[2]]
+    if _looks_rolling(cues):
+        cues = dedup_rolling(cues)
+    out = ["WEBVTT", ""]
+
+    def ts(sec):
+        return (f"{int(sec // 3600):02d}:{int(sec % 3600 // 60):02d}:"
+                f"{sec % 60:06.3f}")
+
+    for start, end, ls in cues:
+        out.append(f"{ts(start)} --> {ts(end)}")
+        out.append(" ".join(ls))
+        out.append("")
+    return "\n".join(out)
+
+
+def parse_timing(path):
+    """-> list of [start_s, end_s, text] from a .vtt or .srt file.
+
+    Rolling YouTube auto-caption files are detected and deduped automatically
+    (with a notice) — feeding one in raw would double every phrase in the
+    verbal layer."""
+    raw_cues = parse_cue_lines(path)
+    if not raw_cues:
         print(f"warn: {Path(path).name} yielded 0 cues - is this a timing file?", file=sys.stderr)
-    return kept
+        return []
+    if _looks_rolling(raw_cues):
+        n_before = len(raw_cues)
+        raw_cues = dedup_rolling(raw_cues)
+        print(f"note: {Path(path).name}: rolling YouTube auto-caption format detected - "
+              f"repeated leading lines deduped ({n_before} -> {len(raw_cues)} cues)",
+              file=sys.stderr)
+    return [[s, e, " ".join(ls)] for s, e, ls in raw_cues if ls]
 
 
 def split_speaker(text):
@@ -227,12 +307,17 @@ def main():
     ap.add_argument("--apply-corrections", default="", help="corrections.json from the LLM pass")
     ap.add_argument("--assemble", action="store_true",
                     help="append the time-stamped slide index to the clean file")
+    ap.add_argument("--zh-index", default="",
+                    help="with --assemble + --fix-clean on a .clean.zh.md mirror: append this "
+                         "file's translated bullets under '## 幻灯片索引' instead of the English index")
     a = ap.parse_args()
-    if not any([a.vtt, a.clean_srt, a.fix_clean]):
+    if not any([a.vtt, a.clean_srt, a.fix_clean, a.zh_index]):
         sys.exit("nothing to do: pass --vtt (verbal/brief), --fix-clean "
                  "[--apply-corrections] [--assemble], and/or --clean-srt + --slides-ocr")
-    if a.fix_clean and a.assemble and not a.slides_ocr:
+    if a.fix_clean and a.assemble and not a.slides_ocr and not a.zh_index:
         sys.exit("--assemble requires --slides-ocr")
+    if a.zh_index and not (a.fix_clean and a.assemble):
+        sys.exit("--zh-index requires --fix-clean + --assemble")
     if a.fix_clean and not Path(a.fix_clean).exists():
         sys.exit(f"--fix-clean file not found: {a.fix_clean}")
     if a.clean_srt:
@@ -259,7 +344,7 @@ def main():
             print(f"correction_brief.md written")
 
     # (b) fine-tune the existing clean transcript in place
-    if a.fix_clean and (a.apply_corrections or a.assemble):
+    if a.fix_clean and (a.apply_corrections or a.assemble or a.zh_index):
         reps, notes, applied, missed = [], "", [], []
         if a.apply_corrections:
             reps, notes = load_corrections(a.apply_corrections)
@@ -267,14 +352,15 @@ def main():
         clean = f.read_text()
         if reps:
             clean, applied, missed = apply_corrections(clean, reps)
-        if a.assemble and a.slides_ocr:
+        if a.assemble and a.slides_ocr and "## Slide index" not in clean:
             slides = json.loads(Path(a.slides_ocr).read_text())
-            if "## Slide index" not in clean:
-                idx = ["## Slide index", ""]
-                for k, s in numbered_slides(slides):
-                    idx.append(f"- Slide {k} @ {s['start']}: "
-                               + " ".join(s.get("ocr", "").split())[:90])
-                clean = clean.rstrip() + "\n\n" + "\n".join(idx) + "\n"
+            idx = ["## Slide index", ""]
+            for k, s in numbered_slides(slides):
+                idx.append(f"- Slide {k} @ {s['start']}: "
+                           + " ".join(s.get("ocr", "").split())[:90])
+            clean = clean.rstrip() + "\n\n" + "\n".join(idx) + "\n"
+        if a.assemble and a.zh_index and "## 幻灯片索引" not in clean:
+            clean = clean.rstrip() + "\n\n## 幻灯片索引\n\n" + Path(a.zh_index).read_text().rstrip() + "\n"
         f.write_text(clean)
         print(f"{f}: corrections applied {len(applied)}"
               + (f" (examples: {applied[:3]})" if applied else ""))

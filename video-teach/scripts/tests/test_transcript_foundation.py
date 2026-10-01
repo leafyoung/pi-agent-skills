@@ -1,4 +1,5 @@
-"""Tests for the transcript-foundation scripts (transcript_layers.py, slide_ocr.py).
+"""Tests for the transcript-foundation scripts (transcript_layers.py, slide_ocr.py,
+fetch_raw_captions.py).
 
 Run:  python3 -m pytest <this-dir> -q
 """
@@ -280,3 +281,108 @@ def test_tag_srt_flip_back_outside_windows_keeps_last_slide_number():
 
 def test_zero_cue_guard_message():
     assert "clean-srt" in "nothing to do: pass --vtt (verbal/brief), --fix-clean [--apply-corrections] [--assemble], and/or --clean-srt + --slides-ocr"
+
+
+# ---------- rolling YouTube auto-caption handling ----------
+
+# Realistic rolling auto-caption VTT: inline <tag> markup, stray " " separator
+# lines between the timestamp and its text, each cue repeating the previous
+# cue's last line (plus pure refresh cues that repeat everything).
+ROLLING_VTT = """WEBVTT
+Kind: captions
+Language: en
+
+00:00:01.000 --> 00:00:04.500 align:start position:0%
+
+Hello<00:00:01.500><c> world</c><00:00:02.000><c> today</c>
+
+00:00:04.500 --> 00:00:04.600 align:start position:0%
+Hello world today
+
+00:00:04.600 --> 00:00:08.000 align:start position:0%
+Hello world today
+we<00:00:05.000><c> study</c><00:00:06.000><c> Kolesky</c>
+
+00:00:08.000 --> 00:00:11.500 align:start position:0%
+we study Kolesky
+
+00:00:11.500 --> 00:00:15.000 align:start position:0%
+we study Kolesky
+and<00:00:12.000><c> the</c><00:00:13.000><c> for</c><00:00:14.000><c> loop</c>
+
+00:00:15.000 --> 00:00:18.000 align:start position:0%
+and the for loop
+
+00:00:18.000 --> 00:00:22.000 align:start position:0%
+and the for loop
+goodbye<00:00:19.000><c> friends</c>
+"""
+
+
+def test_rolling_autocaption_detected_and_deduped(tmp_path, capsys):
+    p = tmp_path / "raw.vtt"
+    p.write_text(ROLLING_VTT)
+    cues = tl.parse_timing(p)
+    err = capsys.readouterr().err
+    assert "rolling YouTube auto-caption format detected" in err
+    texts = [c[2] for c in cues]
+    # refresh cues collapse away; each kept cue carries only its new words
+    assert texts == ["Hello world today", "we study Kolesky",
+                     "and the for loop", "goodbye friends"]
+
+
+def test_non_rolling_file_gets_no_dedup_notice(tmp_path, capsys):
+    p = tmp_path / "raw.vtt"
+    p.write_text(VTT)
+    tl.parse_timing(p)
+    assert "rolling" not in capsys.readouterr().err
+
+
+def test_dedup_rolling_vtt_emits_plain_webvtt(tmp_path):
+    p = tmp_path / "raw.en.vtt"
+    p.write_text(ROLLING_VTT)
+    text = tl.dedup_rolling_vtt(p)
+    assert text.startswith("WEBVTT")
+    assert text.count("-->") == 4
+    assert "<c>" not in text and "align:" not in text
+    assert "Hello world today\nwe study Kolesky" not in text  # one line per cue
+
+
+def test_short_file_without_enough_pairs_is_not_treated_as_rolling(tmp_path, capsys):
+    # 2 cues, 1 pair: below the >=5-pairs evidence threshold even if one overlaps
+    p = tmp_path / "raw.vtt"
+    p.write_text("WEBVTT\n\n00:00:01.000 --> 00:00:02.000\nsame line\n\n"
+                 "00:00:02.000 --> 00:00:03.000\nsame line\nother words\n")
+    tl.parse_timing(p)
+    assert "rolling" not in capsys.readouterr().err
+
+
+def test_zh_index_assembles_translated_section(tmp_path):
+    clean = tmp_path / "ep.clean.zh.md"
+    clean.write_text("# 第 1 集\n\n正文。\n")
+    zh = tmp_path / "slide_index_zh.md"
+    zh.write_text("- 幻灯片 1 @ 0m00s：测试要点\n")
+    argv = ("--fix-clean", str(clean), "--assemble", "--zh-index", str(zh))
+    r = run_cli(*argv)
+    assert r.returncode == 0, r.stderr
+    t = clean.read_text()
+    assert t.count("## 幻灯片索引") == 1 and "幻灯片 1 @ 0m00s" in t
+    assert "## Slide index" not in t  # English index must not leak into the mirror
+    r2 = run_cli(*argv)
+    assert r2.returncode == 0, r2.stderr
+    assert clean.read_text().count("## 幻灯片索引") == 1  # idempotent
+
+
+def test_zh_index_requires_fix_clean_and_assemble():
+    sys.argv = ["tl", "--zh-index", "x.md"]
+    with pytest.raises(SystemExit) as ei:
+        tl.main()
+    assert "--zh-index requires" in str(ei.value)
+
+
+# ---------- slide_ocr duplicate-capture guard ----------
+
+def test_ocr_similarity_endpoints():
+    assert so.ocr_similarity("Slide one oil prices", "Slide one oil prices") == 1.0
+    assert so.ocr_similarity("alpha beta gamma", "delta epsilon zeta") == 0.0
+    assert so.ocr_similarity("", "anything") == 0.0
