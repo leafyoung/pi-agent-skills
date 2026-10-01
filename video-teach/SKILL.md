@@ -10,7 +10,8 @@ description: >-
   "turn these lectures into lessons/episodes", "set up a course workspace for a
   YouTube playlist", or otherwise wants the video→transcript→slides→lessons→
   notebooks pipeline over one or more lecture URLs. Pairs with the `teach` skill
-  (teaching rules, mdBook format) and the `transcribe-video` skill (transcription).
+  (teaching rules; mdBook mechanics live in the `mdbook-authoring` skill)
+  and the `transcribe-video` skill (transcription).
 ---
 
 # Build a video course workspace
@@ -77,7 +78,8 @@ and numbers, the transcript outranks the slide on reasoning and motivation.
 ├── .gitignore             # mdbook/book/, output/, __pycache__, caches,
 │                          #   transcript intermediates (.webm, .groq.*, raw .srt)
 ├── mdbook/                # the course book (teach-skill mdBook flavor)
-│   ├── book.toml          #   scaffold per teach/MDBOOK.md Route A (admonish+katex+text-fix)
+│   ├── book.toml          #   scaffold per the mdbook-authoring skill's Route A
+│   │                      #   (admonish+katex+text-fix)
 │   ├── src/SUMMARY.md     #   one Part per episode; every file listed or it won't render
 │   ├── src/about.md       #   course overview (NOT mission.md — root MISSION.qmd is canonical)
 │   ├── src/epN-<slug>/    #   episode overview chapter + lessons/*.md for that episode
@@ -104,8 +106,9 @@ editor-readable ledgers, deliberately never rendered (no root `_quarto.yml`); th
 book's `about.md` is the in-book summary, not a duplicate. Reference docs live in
 the book (it's the living format). Record the flavor choice in `NOTES`.
 Every mdBook rule — toolchain pinning, plugin wiring, SUMMARY completeness,
-zero-warning build bar, style table — is in the teach skill's `MDBOOK.md`; follow it,
-starting from its `assets/book.toml`.
+zero-warning build bar, style table — is in the **mdbook-authoring** skill
+(`~/.agents/skills/mdbook-authoring/`, shared by teach/video-teach/slides-teach);
+follow it, starting from its bundled `assets/book.toml`.
 
 **Python code.** One root `pyproject.toml`, no per-episode files; add a dependency once
 at the root when any episode needs it. If episodes grow importable `src/` packages,
@@ -328,8 +331,8 @@ truths first, exercises with answer keys, citations, ZPD) all apply unchanged.
   must be embedded by a lesson in the same session — an unreferenced copy is dead
   weight that reads as already-used, and no build warning will flag it.
 - Build bar: `mdbook build` with zero warnings; math via KaTeX, callouts via
-  admonish, per MDBOOK.md's style table and gotchas (escape literal `$`, wire the
-  text-fix preprocessor, no `README.md` in src/).
+  admonish, per the mdbook-authoring skill's style table and gotchas (escape
+  literal `$`, wire the text-fix preprocessor, no `README.md` in src/).
 
 ### Step 5 — Resources (download on the spot, as qmd)
 

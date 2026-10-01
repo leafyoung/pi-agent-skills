@@ -12,7 +12,8 @@ description: >-
   "make a course from this PDF/textbook chapter", or otherwise wants the
   slides→index→lessons→resources→notebooks pipeline over static files — no
   audio/video, hence no download or transcription step. Pairs with the `teach`
-  skill (teaching rules, mdBook format); the video-course sibling for
+  skill (teaching rules; mdBook mechanics live in the `mdbook-authoring`
+  skill); the video-course sibling for
   lecture-video sources is `video-teach`.
 ---
 
@@ -66,7 +67,8 @@ wording and numbers (OCR/selection is exact; visual reading is not).
 ├── .python-version        # 3.12 unless the course needs otherwise
 ├── .gitignore             # mdbook/book/, output/, __pycache__, caches
 ├── mdbook/                # the course book (teach-skill mdBook flavor)
-│   ├── book.toml          #   scaffold per teach/MDBOOK.md Route A (admonish+katex+text-fix)
+│   ├── book.toml          #   scaffold per the mdbook-authoring skill's Route A
+│   │                      #   (admonish+katex+text-fix)
 │   ├── src/SUMMARY.md     #   one Part per unit; every file listed or it won't render
 │   ├── src/about.md       #   course overview + progress table (the resume anchor;
 │   │                      #   NOT mission.md — root MISSION.qmd is canonical)
@@ -93,7 +95,9 @@ teach "Output Formats"). The book's `about.md` is the in-book summary, not a
 duplicate. Reference docs live in the book (it's the living format). Record
 the flavor choice in `NOTES`. Every mdBook rule — toolchain pinning, plugin
 wiring, SUMMARY completeness, zero-warning build bar, style table — is in the
-teach skill's `MDBOOK.md`; follow it, starting from its `assets/book.toml`.
+**mdbook-authoring** skill (`~/.agents/skills/mdbook-authoring/`, shared by
+teach/video-teach/slides-teach); follow it, starting from its bundled
+`assets/book.toml`.
 
 **Python code.** One root `pyproject.toml`, no per-unit files; add a
 dependency once at the root when any unit needs it. Notebooks are **marimo,
@@ -204,8 +208,8 @@ apply unchanged.
   likewise, and keep a conservative copyright posture — brief excerpts for
   personal study are fine, wholesale re-publication is not.
 - Build bar: `mdbook build` with zero warnings; math via KaTeX, callouts via
-  admonish, per MDBOOK.md's style table and gotchas (escape literal `$`, wire
-  the text-fix preprocessor, no `README.md` in src/).
+  admonish, per the mdbook-authoring skill's style table and gotchas (escape
+  literal `$`, wire the text-fix preprocessor, no `README.md` in src/).
 
 ### Step 4 — Resources (download on the spot, as qmd)
 
