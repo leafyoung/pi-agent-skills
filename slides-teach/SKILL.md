@@ -12,8 +12,8 @@ description: >-
   "make a course from this PDF/textbook chapter", or otherwise wants the
   slides→index→lessons→resources→notebooks pipeline over static files — no
   audio/video, hence no download or transcription step. Pairs with the `teach`
-  skill (pedagogy), the `teach-course` skill (workspace layout, lessons into
-  the book, resources, notebooks, verification gates), and the
+  skill (pedagogy, workspace layout, lessons into the book, resources,
+  verification gates), the `teach-marimo` skill (companion notebooks), and the
   `mdbook-authoring` skill (book mechanics); the sibling for lecture-video
   sources is `video-teach`.
 ---
@@ -25,12 +25,13 @@ workbook of spreadsheets — into a **teaching workspace**: one git repo whose
 per-unit folders hold every primary source (page captures, per-page text,
 speaker notes, resource snapshots, notebook, lessons), and one mdBook that
 teaches the course. The workspace structure, state-doc flavor, book layout,
-resource and notebook rules, and the exit gate are the **teach-course** skill's
+resource rules, and the exit gate are the **teach** skill's
 course flavor with these parameters: unit folder `unitN_<slug>/`, join key the
 source page number `pNNN`, authoring inputs the pages index + text layer +
 speaker notes, and one unit per source document. Steps 3–6 (lessons into the
-book, resources, marimo notebook, wrap) are teach-course's, with this course's
-content sources and citation rule noted below. The pipeline per unit:
+book, resources, marimo notebook, wrap) are the teach skill's (notebooks per
+teach-marimo), with this course's content sources and citation rule noted
+below. The pipeline per unit:
 
 ```
 source file ──convert/ingest──► unit/source/ (original, committed)
@@ -40,8 +41,8 @@ source file ──convert/ingest──► unit/source/ (original, committed)
   ├──pptx speaker notes──► notes.md   (the narration intent, when the format has it)
   │
   ▼
-mdbook lessons (teach pedagogy,           unit/notebooks/*.py (marimo)
-teach-course authoring)                   + unit README + learning records
+mdbook lessons (teach skill)              unit/notebooks/*.py (marimo,
++ unit/resources/*.qmd snapshots          per teach-marimo) + unit README
 ```
 
 The document itself is **ground truth**: never teach from parametric memory
@@ -123,20 +124,20 @@ For **XLSX sources**: skip page extraction. Dump each sheet's shape, header
 row, dtypes, and a representative sample into `pages/README.md` (as an
 inventory, same authoritativeness), and note derived fields worth teaching.
 
-### Steps 3–6 — lessons, resources, notebook, wrap (teach-course)
+### Steps 3–6 — lessons, resources, notebook, wrap (teach, notebooks per teach-marimo)
 
-Author per teach-course with this course's parameters: authoring inputs are
+Author per the teach skill with this course's parameters: authoring inputs are
 `pages/README.md` (densest source), the text layer, and `notes.md`
 (narration intent), joined by page number — the source tells you *what to
 teach and in what order*. Lesson cadence: 2–4 lessons per substantial source
 (say, per 30–40 content pages). Cite the source by page ("source p.12") with
 a relative link to the kept page image and the `pages/README.md` row. The
 source document itself enters `RESOURCES` marked *in-repo*, pointing at
-`unitN_<slug>/source/`. For XLSX sources, notebooks bundle the real sheet as
-a small CSV when it is small enough to commit, else a faithful synthetic
-stand-in, stated as such. Everything else - book structure, figures,
-copyright posture, the notebook and its verifier, wrap-up and the exit gate -
-is teach-course.
+`unitN_<slug>/source/`. Everything else - book structure, figures,
+copyright posture, wrap-up and the exit gate - is the teach skill's;
+companion notebooks are the teach-marimo skill's (built by default here;
+skipped when the source teaches a non-Python language; the XLSX data-bundling
+rule is teach-marimo's).
 
 ## Conventions
 
@@ -146,7 +147,7 @@ is teach-course.
   the text layer on rendered formulas and layout; the text layer outranks the
   image on exact wording and numbers.
 - **Errata in the source** get teach-skill ERRATA tags at the point of use
-  (teach-course "Mirrors, sync, and verification").
-- **New session in an existing course**: follow teach-course's resume order;
+  (teach "Mirrors, sync, and verification").
+- **New session in an existing course**: follow teach's resume order;
   Step 1–2 end state is `pages/README.md` present (and `notes.md` extracted
-  for pptx, or marked "none"), the rest is the teach-course exit gate.
+  for pptx, or marked "none"), the rest is the teach exit gate.

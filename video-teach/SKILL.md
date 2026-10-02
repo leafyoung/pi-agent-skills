@@ -10,9 +10,9 @@ description: >-
   "turn these lectures into lessons/episodes", "set up a course workspace for a
   YouTube playlist", or otherwise wants the video→transcript→slides→lessons→
   notebooks pipeline over one or more lecture URLs. Pairs with the `teach` skill
-  (pedagogy), the `teach-course` skill (workspace layout, lessons into the book,
-  resources, notebooks, verification gates), the `mdbook-authoring` skill (book
-  mechanics), and the `transcribe-video` skill (transcription).
+  (pedagogy, workspace layout, lessons into the book, resources, verification
+  gates), the `teach-marimo` skill (companion notebooks), the `mdbook-authoring`
+  skill (book mechanics), and the `transcribe-video` skill (transcription).
 ---
 
 # Build a video course workspace
@@ -28,17 +28,19 @@ description: >-
    `.clean.md` (slide refs + index), tagged `.clean.srt`,
    `correction_brief.md`/`corrections.json`.
 4. **Steps 4–7** — lessons (mdBook) → resources → marimo notebook → wrap:
-   per the **teach-course** skill, with this course's parameters (below).
+   per the **teach** skill, with this course's parameters (below).
 
 Turn a list of YouTube lecture videos into a **teaching workspace**: one git repo
 whose per-episode folders hold every primary source (transcript, slide captures,
 resource snapshots, notebook, lessons), and one mdBook that teaches the course.
-The workspace structure, state-doc flavor, book layout, resource and notebook
-rules, and the exit gate are the **teach-course** skill's course flavor with
+The workspace structure, state-doc flavor, book layout, resource rules, and the
+exit gate are the **teach** skill's course flavor with
 these parameters: unit folder `epN_<slug>/`, join key `MmSSs` timestamps on the
 raw video timeline, authoring inputs the slides index + corrected transcript,
 root extras `MEDIA.md` (pointer to the gitignored video cache) and the kept
-transcript intermediates. The pipeline per episode:
+transcript intermediates. Companion notebooks follow the **teach-marimo**
+skill's when-to-build rule (built by default for these courses; skipped when
+the lecture series teaches a non-Python language). The pipeline per episode:
 
 ```
 video/URL ──transcribe-video──► transcript/<slug>.raw.vtt + .clean.md   (Step 1;
@@ -52,8 +54,8 @@ video/URL ──transcribe-video──► transcript/<slug>.raw.vtt + .clean.md 
                                        │
                      ┌─────────────────┴──────────────────┐
                      ▼                                    ▼
-        mdbook lessons (teach pedagogy,          epN/notebooks/*.py (marimo)
-        teach-course authoring)                  + episode README + learning records
+        mdbook lessons (teach skill)             epN/notebooks/*.py (marimo,
+        + epN/resources/*.qmd snapshots          per teach-marimo) + episode README
 ```
 
 The video content itself is **ground truth**: never teach from parametric memory
@@ -82,7 +84,7 @@ before the go-ahead.
 Work episodes in watch order. The pipeline splits into two phases with a handover
 gate between them: **Phase A — data** (Steps 1–3, plus the official deck PDF, which
 is ground truth for the index) collects everything the lessons will cite; **Phase B —
-lessons** (Steps 4–7, per teach-course) authors from it. Phase A for one episode may
+lessons** (Steps 4–7, per teach) authors from it. Phase A for one episode may
 run while an earlier episode is in Phase B, but an episode does not enter Phase B
 until its Phase A exit checklist (end of this file) passes — it is the handover
 contract between the two phases. The reason the gate is strict: lessons cite the slide index
@@ -237,17 +239,19 @@ fixed sentences), and append the translated slide index via
 `--fix-clean <slug>.clean.zh.md --assemble --zh-index <translated-index.md>`
 (bullets under `## 幻灯片索引`).
 
-### Steps 4–7 — lessons, resources, notebook, wrap (teach-course)
+### Steps 4–7 — lessons, resources, notebook, wrap (teach, notebooks per teach-marimo)
 
-Author per teach-course with this course's parameters: authoring inputs are
+Author per the teach skill with this course's parameters: authoring inputs are
 `slides/README.md` (densest source) and the corrected `transcript/*.clean.md`
 (narrated derivations, joined by timestamp) — the lecture tells you *what to
 teach and in what order*. Lesson cadence: 2–4 lessons per lecture hour. The
 lecture's own deck PDF is a Phase A artifact (it verifies the slide index), so
 it is pulled into `resources/` before the A-exit gate even though resources
 formally belong to Step 5. Cite the lecture by video timestamp + transcript
-section. Everything else - book structure, figures, copyright posture, the
-notebook and its verifier, wrap-up and the exit gate - is teach-course.
+section. Everything else - book structure, figures, copyright posture,
+wrap-up and the exit gate - is the teach skill's; companion notebooks are the
+teach-marimo skill's (built by default here; skipped for non-Python-language
+lecture series).
 Lesson language: the course's language; per-language mirror books only when
 the user explicitly requests a translated course.
 
@@ -262,9 +266,9 @@ URL scrambles are easy to make and are caught only downstream.
   lesson citations — never assume section headers line up 1:1 with slides.
 - **Formulas are transcribed as text** in transcripts and the slides index; the
   slide image outranks the spoken formula when they disagree.
-- **New session in an existing course**: follow teach-course's resume order;
+- **New session in an existing course**: follow teach's resume order;
   Step 1–3 end states are defined by the Phase A gate below, Steps 4–7 by the
-  teach-course exit gate.
+  teach exit gate.
 
 ## Verification checklists — the Phase A → B handover gate
 
@@ -294,7 +298,7 @@ catches mislabeled captures and garbled names that presence checks never will.
       `.clean.srt` is `[Slide K]`-tagged; the zh decision (default no-zh unless the
       course overrides) is recorded
 
-**Phase B uses the teach-course exit gate, plus these video-specific items:**
+**Phase B uses the teach exit gate, plus these video-specific items:**
 
 - [ ] lessons cite the corrected layers (timestamps, slide numbers), not the
       raw transcript
