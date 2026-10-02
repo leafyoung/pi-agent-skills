@@ -352,3 +352,11 @@ Glossaries, in particular, are an essential reference. Once one is created, it s
 ## `NOTES`
 
 The user will sometimes express preferences of how they want to be taught, or things you should keep in mind. This is the place to record those preferences, so you can refer back to them when designing lessons or working with the user. (Location per flavor: [Workspace Layout](#workspace-layout).)
+
+## Validating the teach skill family
+
+The family (teach, teach-marimo, video-teach, slides-teach, bound to
+mdbook-authoring) carries a stored architecture contract and validation
+protocol: [FAMILY-VALIDATION.md](./FAMILY-VALIDATION.md). Re-run it after any
+structural change to a family skill, or when cross-skill behavior looks wrong;
+report findings and fix on the user's go-ahead.
