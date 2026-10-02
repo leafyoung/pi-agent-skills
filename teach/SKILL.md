@@ -70,9 +70,47 @@ material. Fix the parameters at workspace creation:
 | Authoring inputs | `slides/README.md` + corrected transcript | `pages/README.md` + text layer + `notes.md` | research |
 | Source gate | video-teach Phase A | slides-teach index review | - |
 | Extras | `MEDIA.md` + gitignored media cache; deck PDF pulled forward | `source/` committed; `notes.md` speaker notes | - |
+| Course shape | planned (front-end courses are always planned) | planned | planned or session-driven - chosen at first session, recorded in `NOTES` |
 
 Everything below is written in terms of a **unit** - an episode, a unit, or a
 lesson batch in a tutoring workspace.
+
+### Course shape
+
+Two shapes, decided at the first session and recorded in `NOTES`. Both share
+every lesson rule, resource rule, and gate below; they differ only in when
+lessons come into existence.
+
+**Planned (default).** The dependency map becomes Parts/units and all lessons
+are authored against the plan (the First session flow as written). A planned
+course may continue interactively afterwards; the `about.md` progress table
+tracks lessons built, not intent.
+
+**Session-driven** (tutoring and project-anchored workspaces, when the user
+will be present across sessions and lessons should grow from real work - the
+way session discoveries and retrieval checks naturally arise):
+
+- First session runs the interview and ZPD bracketing in full, scaffolds the
+  book, authors only the first 1-2 lessons, and records the dependency map as
+  a **plan page** in the book: every node the course could teach, unwritten
+  ones marked. The `about.md` progress table doubles as the backlog.
+- Each later session: read `learning-records` / `NOTES` / the plan page, pick
+  the next node by ZPD or let the session's project work surface one, author
+  1-2 lessons (new material, or a retrieval lesson when a probe exposed a
+  shaky node), run the per-batch exit gate, update plan and progress table,
+  commit.
+- The plan is a hypothesis: sessions add, split, or drop nodes as evidence
+  arrives. Revising the plan is the shape working, not a deviation - note the
+  revision in a learning record.
+- An autonomous run cannot do this shape. It scaffolds (mission, plan page,
+  first lessons, calibration Checks) and stops; fabricating session
+  discoveries, or authoring the whole curriculum while calling it
+  session-driven, is neither shape.
+
+**Switching.** Record it in `NOTES`. Planned -> session-driven turns the
+unwritten remainder into the plan-page backlog (the normal way an autonomous
+start continues interactively). Session-driven -> planned front-loads the
+backlog; rare.
 
 ### The unit's authoritative index
 
@@ -118,14 +156,14 @@ The teaching rules are identical under both formats; only the authoring format a
 
 ## First session
 
-1. **Probe.** If no mission document exists yet, interview the user on why they want to learn this (`ask_user_question`) — interrogate the goal until it's concrete. Write it before authoring any teaching content (format: [MISSION-FORMAT.md](./MISSION-FORMAT.md); scaffold the directory shell first if the document lives inside the book). Also probe their current level: bracket the edge of what they know (see [Zone Of Proximal Development](#zone-of-proximal-development)). In the same question round, **confirm the output format** (see [Output Formats](#output-formats)) unless the user already specified one, and record the answer in `NOTES` before authoring content.
+1. **Probe.** If no mission document exists yet, interview the user on why they want to learn this (`ask_user_question`) — interrogate the goal until it's concrete. Write it before authoring any teaching content (format: [MISSION-FORMAT.md](./MISSION-FORMAT.md); scaffold the directory shell first if the document lives inside the book). Also probe their current level: bracket the edge of what they know (see [Zone Of Proximal Development](#zone-of-proximal-development)). In the same question round, **confirm the output format** (see [Output Formats](#output-formats)) and **the course shape** (see [Course shape](#course-shape)) unless the user already specified them, and record the answers in `NOTES` before authoring content.
 2. **Plan.** Scope the field from research, never from memory alone. Present the plan in chat before any teaching: the approach in prose, plus a small mermaid dependency map — unconditional truths at the roots, each node hanging off what it depends on, the user's goal as the sink. Stress-test the roots: if a "foundational" node itself derives from something simpler the user would accept at face value, push it down. Then stop and wait for the user's go-ahead before authoring (resource *acquisition* may run during planning; authoring waits). Search for high-trust sources (books, articles, courses, communities) and populate `RESOURCES` — every entry is downloaded on the spot (see [Resources](#resources-download-on-the-spot)).
 3. **Build one lesson.** mdbook (default): scaffold the book from the mdbook-authoring skill's bundled template and follow its Route A. Quarto (print-first only): create a single self-contained lesson in `./lessons/0001-...qmd` rendered to PDF via Typst, with the workspace `_quarto.yml` bootstrapped from the bundled template [`assets/_quarto.yml`](./assets/_quarto.yml).
 4. **Record.** Write a learning record if the user demonstrated understanding or disclosed prior knowledge.
 
 Future sessions: read `learning-records/` and `NOTES` to pick the next thing in their zone of proximal development.
 
-**When the user is unavailable** (pre-approved plan, unattended run): skip the interview and `ask_user_question`; mark the mission as assumed in the mission document, record the plan, the dependency map, and every assumption with its evidence in `NOTES`, then proceed in one go to a finished, built, committed course. Design the earliest lessons' Checks as ZPD calibration instruments, and make the next live session a verification session: probe the edge against the existing lessons before authoring new material.
+**When the user is unavailable** (pre-approved plan, unattended run): skip the interview and `ask_user_question`; mark the mission as assumed in the mission document, record the plan, the dependency map, and every assumption with its evidence in `NOTES`, then proceed in one go to a finished, built, committed course. Autonomous runs use the planned shape; if the user wants a session-driven course, scaffold it (mission, plan page, first lessons, calibration Checks) and stop - do not author the whole curriculum. Design the earliest lessons' Checks as ZPD calibration instruments, and make the next live session a verification session: probe the edge against the existing lessons before authoring new material.
 
 ## Workspace Layout
 
@@ -230,7 +268,7 @@ Author per the teaching rules above - this section is only about where lessons l
 - Lesson language: the course's language - the user's stated preference, else the source's. Mirror books apply only when the user explicitly requests a translated course (see [Mirrors, sync, and verification](#mirrors-sync-and-verification)).
 - 2-4 lessons per lecture hour (video) or per 30-40 content pages (slides), each tightly-scoped, self-contained, with a single tangible win and its `## Exercises`/`## Answers` sections. A lesson with unanswered exercises must not ship.
 - When the field is a family of sibling artifacts (a library's primitives) and the mission is per-artifact fluency, default to one lesson per artifact; combine siblings only when the comparison itself is the lesson's win.
-- Every 3-4 new lessons, author one retrieval lesson: earlier Checks re-asked in a new context, zero new concepts, explicitly short - storage-strength work is not left to end-of-lesson exercises alone.
+- Every 3-4 new lessons (planned shape), author one retrieval lesson: earlier Checks re-asked in a new context, zero new concepts, explicitly short - storage-strength work is not left to end-of-lesson exercises alone. In the session-driven shape retrieval lessons are emergent: authored the moment a probe or session exposes a shaky node.
 - Retrofit (absorbing pre-existing lessons): normalize their exercise headings to the book's convention (`## Exercises` / `## Answers`) and bring each chapter to the same bar - a numerical, chapter-computable exercise where the existing mix is conceptual-only.
 - Book structure: one Part per unit in `SUMMARY.md`; each Part opens with a unit overview chapter (what the source covers, link to the original, links to its notebook and resources) followed by the lessons. Add each chapter to `SUMMARY.md` in the same edit that creates it.
 - Cite the source: video courses link the video with a timestamp (`https://youtu.be/<id>?t=<s>`) plus the local transcript section; slides courses cite the page ("source p.12") with a relative link to the kept page image in `mdbook/src/assets/unitN/` and the `pages/README.md` row.
