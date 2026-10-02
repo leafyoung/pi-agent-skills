@@ -66,9 +66,10 @@ pointers, never copies.
    correctly: exercises-all-answered + multiple-choice construction (teach);
    acquisition-on-the-moment + the fetched-PDF truncation check + resources
    gitignore (teach); errata at point-of-use + mirror sync via
-   `normalized_diff.py` (teach); deck PDF pulled forward + narration-aligned
-   index columns (video-teach); pages index density + notes.md extraction +
-   XLSX inventory mode (slides-teach); XLSX CSV bundling (teach-marimo).
+   `normalized_diff.py` + the authoritative-index contract (teach); deck PDF
+   pulled forward + narration-aligned index columns (video-teach); notes.md
+   extraction + XLSX inventory mode (slides-teach); XLSX CSV bundling
+   (teach-marimo).
 7. **Functional smoke test** (when a course workspace with a notebook is
    available): run `uv run python ~/.agents/skills/teach-marimo/scripts/run_marimo_notebook.py
    <notebook>.py` against one existing course notebook; expect exit 0 on a

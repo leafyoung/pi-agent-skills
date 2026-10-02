@@ -74,6 +74,33 @@ material. Fix the parameters at workspace creation:
 Everything below is written in terms of a **unit** - an episode, a unit, or a
 lesson batch in a tutoring workspace.
 
+### The unit's authoritative index
+
+Every source pipeline produces one - a `README.md` beside the extracted items
+(slide captures, page renders) - and everything downstream treats it as the
+densest source of teaching content. The contract is flavor-independent:
+
+- one table row per kept item: file, on-item title, the item's position on the
+  flavor's join key (narration range or page number), and a **dense summary of
+  every formula, claim, figure, and number on the item**;
+- formulas are transcribed as text (`M_t(n) = P_t − MA_t(n)`), never left
+  image-only;
+- every row is verified against the item image - never skimmed, never taken
+  from the narration alone;
+- the index and its narration layer (spoken transcript, text layer, speaker
+  notes) are first-class inputs to everything downstream: lessons take their
+  structure, derivations, and emphasis from the source's own order and
+  narration; notebooks implement what the source works through. Author from
+  the source outward - read it end-to-end for the argument's shape before
+  writing anything;
+- when sources disagree, the image wins on what is *shown* (rendered formulas,
+  numbers, figures, layout); the narration layer wins on *reasoning,
+  motivation, and intent*; whichever layer is machine-exact (OCR/selection)
+  outranks visual reading on exact wording and numbers.
+
+The front-ends add their artifact-specific columns, caveats, and precedence
+tails to this contract.
+
 ## Output Formats
 
 A teaching workspace authors its lessons in **one format — mdbook by default**. **Ask the user only to confirm when starting a new workspace** — unless they already named a format or explicitly want print-first lessons, do not push quarto. If they defer ("whatever", "you choose"), fall back to mdbook. Record the choice in `NOTES`; in an existing workspace, read it from `NOTES` or infer it from disk (`mdbook/` or `lessons_md*/` -> mdbook; `lessons/*.qmd` with no book dir -> quarto) and don't re-ask.
