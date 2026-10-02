@@ -13,7 +13,7 @@ mechanical checks that prove the current files still implement it.
 | `teach-marimo` | `~/.agents/shared_skills/teach-marimo/` | companion notebooks: whether to build, how, the `run_marimo_notebook.py` verifier, editor wiring |
 | `video-teach` | `~/.agents/shared_skills/video-teach/` | video source pipeline: transcribe (Step 1), slides+OCR (Step 2), transcript layers (Step 3), Phase A handover gate |
 | `slides-teach` | `~/.agents/shared_skills/slides-teach/` | static-source pipeline: ingest (Step 1), page extraction/index + speaker notes (Step 2) |
-| `mdbook-authoring` | `~/.agents/skills/mdbook-authoring/` (external, bound) | book mechanics: toolchain, Route A/B, style table |
+| `mdbook-authoring` | `~/.agents/shared_skills/mdbook-authoring/` | book mechanics: toolchain, Route A/B, style table (tracked in this repo like the family, but external to it: owned by its own skill, not restructured with it) |
 
 `~/.agents/skills/<skill>` are symlinks to `../shared_skills/<skill>`; edit only
 the real files under `shared_skills/`.
