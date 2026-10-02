@@ -56,7 +56,7 @@ Lock in the core **always-true** unconditional truths before anything built on t
 
 Facts feel arbitrary when there's no visible reason they *had* to be that way, and the brain won't commit to arbitrary info. Make it feel discovered, not decreed: walk through how the user **could have discovered it themselves**, with every step motivated — why are we even doing this? why try *this* formula? why manipulate the equation *this* way? 3Blue1Brown is the reference style: nothing appears from nowhere.
 
-**Socratic vs expository — choose per topic and per the user's energy.** Socratic (pose the motivating problem, let them attempt the discovery first) is stronger and the default when they can plausibly reason their way there. Expository (narrate the motivated path yourself) when the topic is beyond cold-reasoning reach or the user is low-energy.
+**Socratic vs expository — choose per topic and per the user's energy.** Socratic (pose the motivating problem, let them attempt the discovery first) is stronger and the default when they can plausibly reason their way there. Expository (narrate the motivated path yourself) when the topic is beyond cold-reasoning reach or the user is low-energy. When authoring without a live user (pre-approved plan, interview impossible), keep attempt-first prompts in the text - the reader self-attempts asynchronously; expository narration is the fallback, not the default.
 
 ## Course parameters (fix once per workspace, record in NOTES)
 
@@ -101,6 +101,8 @@ densest source of teaching content. The contract is flavor-independent:
 The front-ends add their artifact-specific columns, caveats, and precedence
 tails to this contract.
 
+**Vehicle policy (repo-anchored courses).** Decide once, in `NOTES`, whether the agent may modify the study vehicle; the default when the user is unavailable is to freeze it and turn the mission's "finish it" into the user's worked backlog, with model answers in the book. Before lesson 1, run the vehicle's test suite in every language it has; confirm each suspected defect with a minimal, committed, reproducible probe; classify defects inherited-vs-local against upstream; ledger the results before teaching from the code - a reference that cannot run is course content, not a footnote. When lessons will quote numbers, acquire a reference run early (fixed seed, artifacts under `<unit>/output/`): lessons quote the reference run, and the source's claimed numbers become reproduction exercises.
+
 ## Output Formats
 
 A teaching workspace authors its lessons in **one format — mdbook by default**. **Ask the user only to confirm when starting a new workspace** — unless they already named a format or explicitly want print-first lessons, do not push quarto. If they defer ("whatever", "you choose"), fall back to mdbook. Record the choice in `NOTES`; in an existing workspace, read it from `NOTES` or infer it from disk (`mdbook/` or `lessons_md*/` -> mdbook; `lessons/*.qmd` with no book dir -> quarto) and don't re-ask.
@@ -122,6 +124,8 @@ The teaching rules are identical under both formats; only the authoring format a
 4. **Record.** Write a learning record if the user demonstrated understanding or disclosed prior knowledge.
 
 Future sessions: read `learning-records/` and `NOTES` to pick the next thing in their zone of proximal development.
+
+**When the user is unavailable** (pre-approved plan, unattended run): skip the interview and `ask_user_question`; mark the mission as assumed in the mission document, record the plan, the dependency map, and every assumption with its evidence in `NOTES`, then proceed in one go to a finished, built, committed course. Design the earliest lessons' Checks as ZPD calibration instruments, and make the next live session a verification session: probe the edge against the existing lessons before authoring new material.
 
 ## Workspace Layout
 
@@ -214,6 +218,8 @@ Structure each concept in a lesson as a **node** in the dependency map, and teac
 3. **Connect** — make the dependency edge explicit: show how this node hangs off what's already established, so it's understood, not memorized.
 4. **Check** — confirm the node landed (exercise or in-chat question) before building anything on it. An unconfirmed foundation is exactly as dangerous as an unconfirmed derived fact. Any mid-lesson unconditional truth goes through the same loop.
 
+The four moves must be discernible in the text; headings may be content-labeled rather than the literal four names.
+
 Math renders as LaTeX — write `$f(x) = x^2$`, never plain-text approximations. If LaTeX can be used, it should be. (Rendering mechanics and per-format gotchas: mdbook-authoring.) Figures are regenerable components, not one-offs — see [Assets](#assets).
 
 ## Lessons in the book
@@ -223,6 +229,8 @@ Author per the teaching rules above - this section is only about where lessons l
 - Content comes from the unit's authoritative index and narration layer (see [Course parameters](#course-parameters-fix-once-per-workspace-record-in-notes)). The source tells you *what to teach and in what order*; the teach rules tell you *how*.
 - Lesson language: the course's language - the user's stated preference, else the source's. Mirror books apply only when the user explicitly requests a translated course (see [Mirrors, sync, and verification](#mirrors-sync-and-verification)).
 - 2-4 lessons per lecture hour (video) or per 30-40 content pages (slides), each tightly-scoped, self-contained, with a single tangible win and its `## Exercises`/`## Answers` sections. A lesson with unanswered exercises must not ship.
+- When the field is a family of sibling artifacts (a library's primitives) and the mission is per-artifact fluency, default to one lesson per artifact; combine siblings only when the comparison itself is the lesson's win.
+- Every 3-4 new lessons, author one retrieval lesson: earlier Checks re-asked in a new context, zero new concepts, explicitly short - storage-strength work is not left to end-of-lesson exercises alone.
 - Retrofit (absorbing pre-existing lessons): normalize their exercise headings to the book's convention (`## Exercises` / `## Answers`) and bring each chapter to the same bar - a numerical, chapter-computable exercise where the existing mix is conceptual-only.
 - Book structure: one Part per unit in `SUMMARY.md`; each Part opens with a unit overview chapter (what the source covers, link to the original, links to its notebook and resources) followed by the lessons. Add each chapter to `SUMMARY.md` in the same edit that creates it.
 - Cite the source: video courses link the video with a timestamp (`https://youtu.be/<id>?t=<s>`) plus the local transcript section; slides courses cite the page ("source p.12") with a relative link to the kept page image in `mdbook/src/assets/unitN/` and the `pages/README.md` row.
@@ -258,6 +266,8 @@ The user may specify an exact thing they want to learn. If they don't, figure ou
 - Map every strand the lesson rests on, bounded by relevance to the goal.
 - Ask via `ask_user_question` (multiple-choice options work); grade from their pick. On a miss, one follow-up ("why did you pick that?" or a near-miss variant) before moving on — a careless slip and a systematic misconception call for different responses, and misconceptions must be dislodged, not topped up.
 
+**Unprobed edge (autonomous run):** when the edge could not be bracketed with the user, say so in the learning record, add per-lesson self-check forks ("if you can state X from memory, skim ahead to Y"), and make re-probing the first live session's business before any new material is authored.
+
 ## Knowledge
 
 Lessons should be designed around a skill the user is going to learn. The knowledge in the lesson should be only what's required to acquire that skill. You teach the knowledge first, then get the user to practice the skills via an interactive feedback loop.
@@ -277,6 +287,9 @@ For acquiring knowledge, difficulty is the enemy. It eats working memory you nee
 - Paywalled or unobtainable full texts -> say so plainly in the ledger; snapshot the abstract/landing page, and hunt an open-access substitute (author mirrors, `.edu` lecture notes, working-paper repositories, the Wayback Machine) rather than relying on the dead link.
 - Streaming or interactive media -> don't mass-download video; snapshot the landing page, mark the entry *streaming-only*, and note the offline substitute where one exists. In a video course the episode video is such an entry: *streaming* + the local cache path from `MEDIA.md` (never commit video). The course's own source document (slides courses) enters marked *in-repo*, pointing at `<unit>/source/`.
 - Find the official materials first (the course's or deck's own published materials beat any third-party summary); record and cite them from the unit's lessons.
+- If a planned strand depends on material living only in session history (review notes, transcripts, artifacts about to be deleted), export it into the workspace with provenance in the same session and ledger it like any resource - a strand whose evidence is not on disk is one context loss from unteachable.
+- Communities (the Wisdom group) do not depend on user contact - populate them even in autonomous runs.
+- Record the exact resolved version when snapshotting library or versioned docs - the exact version is what makes later errata classification possible.
 
 Before finishing any session: every ledger entry has a local path or an explicit streaming-only/paywalled note. Fix the gaps while you're still in the session.
 
@@ -292,7 +305,7 @@ For skill acquisition, difficulty is the tool. Effortful retrieval is what build
 - **Real-world tasks** the lesson walks the user through step by step (for instance, yoga poses, or running a command and observing the output).
 
 Each of these should be based on a **feedback loop**. Because the output is static (a PDF, or a built book), automatic feedback is not possible — so make the loop tight another way: print the answers (or a marking rubric) under a clearly delimited "Answers" heading at the end of the lesson, and always invite the user to bring their attempt back to the agent for review. The agent is the feedback channel.
-
+Name the lesson's specific hard step in the ask-the-agent reminder - a generic invitation gives the reader nothing to ask about.
 **Answers are not optional.** Every exercise printed in a lesson — multiple-choice, fill-in-the-blank, short prompt, real-world task — must have its answer or expected outcome (rubric) printed in the same lesson file, under the "Answers" heading. A lesson rendered with an unanswered exercise is incomplete and must not ship. (2026-09-15: lesson 0001 shipped with unanswered Skills questions and the user had to ask for the key — the exact failure mode this rule prevents.)
 
 **Notebook preference:** the user prefers **marimo** notebooks over Jupyter for lesson-created notebooks and exercises; whether to build one, how, and how to verify it are the **teach-marimo** skill's.
@@ -303,6 +316,7 @@ For printed multiple-choice questions (and in-chat options), construct the set s
 - Write the correct claim first, then mutate it into each distractor: one specific misconception or easily-confused neighbour per distractor, in the same skeleton, grain size, and register as the correct claim.
 - Each distractor must be a real error the user might actually make (so which one they pick is diagnostic), yet unambiguously wrong — tempting, not tricky.
 - No asymmetric bolding, and keep options near the same length (and characters, if possible).
+- Letter the options (a-d) and, at course end, tally the answer key across all lessons and rebalance to near-even.
 
 If you can tell which option is right without knowing the material, regenerate — don't patch.
 
@@ -338,7 +352,9 @@ A translated course is full mirror books (`lessons_md/` + `lessons_md_zh/`): eve
 - [ ] book: new chapters in `SUMMARY.md` (added in the same edit that creates them); `mdbook build` zero warnings; exercises all answered
 - [ ] lessons cite the source layers per the course's join key; every figure or source image copied into `mdbook/src/assets/` is embedded by a lesson
 - [ ] notebooks (where this course builds them - teach-marimo's when-to-build rule): the teach-marimo verifier exits 0; linked from the unit's book chapters
-- [ ] resources: every ledger entry added this session has a local path or a streaming-only note
+- [ ] a verification pass that did not write the lessons re-derived every exercise answer against its source; Answers are numbered 1:1 with Exercises and no authoring notes remain in shipped text
+- [ ] model answers containing runnable code were executed once (recorded), or are labeled unverified sketch
+- [ ] glossary cross-references point at the lesson that actually establishes each term- [ ] resources: every ledger entry added this session has a local path or a streaming-only note
 - [ ] unit README current (including open gaps); commit(s) for the unit
 
 Source pipelines add their own gates before this one (video-teach's Phase A handover gate runs when the unit's data phase completes; the pipeline's own checklist defines each upstream step's end state).
